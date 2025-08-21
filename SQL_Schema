@@ -1,0 +1,78 @@
+-- Fitness Tracker Database Schema for PostgreSQL
+
+-- Drop tables in reverse order of creation to avoid foreign key constraint issues
+-- This is useful for resetting the schema during development
+DROP TABLE IF EXISTS goals;
+DROP TABLE IF EXISTS exercises;
+DROP TABLE IF EXISTS workouts;
+DROP TABLE IF EXISTS friends;
+DROP TABLE IF EXISTS users;
+
+-- Table to store user profile information
+-- Each user has a unique ID and email.
+CREATE TABLE users (
+    user_id SERIAL PRIMARY KEY,
+    name VARCHAR(255) NOT NULL,
+    email VARCHAR(255) UNIQUE NOT NULL,
+    weight_kg NUMERIC(5, 2), -- e.g., 75.50 kg
+    height_cm NUMERIC(5, 2), -- e.g., 180.00 cm
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+);
+
+-- Junction table to manage friendships between users
+-- A friendship is a two-way relationship, so we store both directions
+-- to make querying for a user's friends simpler.
+CREATE TABLE friends (
+    user_id_1 INTEGER NOT NULL,
+    user_id_2 INTEGER NOT NULL,
+    PRIMARY KEY (user_id_1, user_id_2),
+    FOREIGN KEY (user_id_1) REFERENCES users(user_id) ON DELETE CASCADE,
+    FOREIGN KEY (user_id_2) REFERENCES users(user_id) ON DELETE CASCADE,
+    -- Ensure a user cannot be friends with themselves
+    CONSTRAINT check_different_users CHECK (user_id_1 <> user_id_2)
+);
+
+-- Table to log each workout session for a user
+CREATE TABLE workouts (
+    workout_id SERIAL PRIMARY KEY,
+    user_id INTEGER NOT NULL,
+    workout_date DATE NOT NULL,
+    duration_minutes INTEGER,
+    calories_burned INTEGER,
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (user_id) REFERENCES users(user_id) ON DELETE CASCADE
+);
+
+-- Table to store the details of each exercise within a workout
+-- A single workout can contain multiple exercises.
+CREATE TABLE exercises (
+    exercise_id SERIAL PRIMARY KEY,
+    workout_id INTEGER NOT NULL,
+    exercise_name VARCHAR(255) NOT NULL,
+    sets INTEGER,
+    reps INTEGER,
+    weight_kg NUMERIC(6, 2), -- Allows for heavier weights, e.g., 150.75 kg
+    FOREIGN KEY (workout_id) REFERENCES workouts(workout_id) ON DELETE CASCADE
+);
+
+-- Table to store personal fitness goals for each user
+CREATE TABLE goals (
+    goal_id SERIAL PRIMARY KEY,
+    user_id INTEGER NOT NULL,
+    goal_description TEXT NOT NULL,
+    target_value NUMERIC, -- Flexible for different types of goals (e.g., 5 workouts, 100 kg lift)
+    start_date DATE NOT NULL,
+    end_date DATE NOT NULL,
+    status VARCHAR(50) DEFAULT 'Active', -- e.g., 'Active', 'Completed', 'Expired'
+    FOREIGN KEY (user_id) REFERENCES users(user_id) ON DELETE CASCADE
+);
+
+-- Add indexes to foreign key columns to improve query performance,
+-- especially on large datasets.
+CREATE INDEX idx_friends_user_id_1 ON friends(user_id_1);
+CREATE INDEX idx_friends_user_id_2 ON friends(user_id_2);
+CREATE INDEX idx_workouts_user_id ON workouts(user_id);
+CREATE INDEX idx_exercises_workout_id ON exercises(workout_id);
+CREATE INDEX idx_goals_user_id ON goals(user_id);
+
+-- --- End of Schema ---
